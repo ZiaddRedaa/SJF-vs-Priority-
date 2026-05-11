@@ -4,7 +4,7 @@ import java.util.*;
 
 public class Priority extends Scheduler {
 
-    private static int maxx = Integer.MAX_VALUE;
+    private static int maxx = 1;
     private static int boost = 1;
     private static int minPrio = 0;
     private List<Process> processes;
@@ -16,7 +16,7 @@ public class Priority extends Scheduler {
     private int agingVal;
     private int agingBoost;
     public Priority(List<Process> processes) {
-        this(processes, false, maxx, boost);
+        this(processes, true, maxx, boost);
     }
     public Priority(List<Process> processes, boolean agingEnabled, int agingThreshold, int agingBoost) {
         super(processes);

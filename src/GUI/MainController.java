@@ -1,4 +1,4 @@
-package view;
+package GUI;
 
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
@@ -6,6 +6,7 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
+import javafx.scene.control.CheckBox;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 
@@ -66,6 +67,10 @@ public class MainController {
     @FXML private HBox sjfTimelineBox;
     @FXML private HBox priorityTimelineBox;
 
+    @FXML private CheckBox agingCheckBox;
+    @FXML private TextField agingThresholdField;
+    @FXML private TextField agingBoostField;
+
     private final ObservableList<Process> inputProcesses = FXCollections.observableArrayList();
 
     private Sjf lastSjfResult;
@@ -89,6 +94,20 @@ public class MainController {
 
         statusLabel.setText("Ready. Add processes then click Run Comparison.");
         conclusionLabel.setText("Run the comparison first, then choose a winner button.");
+
+        // Sync field state with checkbox on startup
+        updateAgingFieldsState();
+    }
+
+    @FXML
+    private void onAgingToggle() {
+        updateAgingFieldsState();
+    }
+
+    private void updateAgingFieldsState() {
+        boolean enabled = agingCheckBox.isSelected();
+        agingThresholdField.setDisable(!enabled);
+        agingBoostField.setDisable(!enabled);
     }
 
     private void setupInputTable() {
@@ -174,7 +193,26 @@ public class MainController {
         lastSjfResult.schedule();
         lastSjfResult.calculateAverages();
 
-        lastPriorityResult = new Priority(priorityProcesses);
+        boolean agingEnabled = agingCheckBox.isSelected();
+
+        int agingThreshold = 2;
+        int agingBoost = 1;
+
+        if (agingEnabled) {
+            try {
+                agingThreshold = Integer.parseInt(agingThresholdField.getText().trim());
+                agingBoost = Integer.parseInt(agingBoostField.getText().trim());
+                if (agingThreshold <= 0 || agingBoost <= 0) {
+                    showError("Aging Threshold and Boost must be positive integers.");
+                    return;
+                }
+            } catch (NumberFormatException e) {
+                showError("Aging Threshold and Boost must be valid integers.");
+                return;
+            }
+        }
+
+        lastPriorityResult = new Priority(priorityProcesses, agingEnabled, agingThreshold, agingBoost);
         lastPriorityResult.schedule();
         lastPriorityResult.calculateAverages();
 
@@ -416,14 +454,33 @@ public class MainController {
             return;
         }
 
+        // Assign a stable color index to each unique process name
+        java.util.Map<String, Integer> colorMap = new java.util.LinkedHashMap<>();
+        int colorCounter = 0;
+        for (String name : names) {
+            if (!colorMap.containsKey(name)) {
+                colorMap.put(name, colorCounter % 10);
+                colorCounter++;
+            }
+        }
+
         for (int i = 0; i < names.size(); i++) {
             int start = times.get(i);
             int end = times.get(i + 1);
+            String pid = names.get(i);
 
             VBox block = new VBox();
             block.getStyleClass().add("timeline-block");
 
-            Label nameLabel = new Label(names.get(i));
+            boolean isIdle = pid.equalsIgnoreCase("Not found") || pid.equalsIgnoreCase("Idle");
+            if (isIdle) {
+                block.getStyleClass().add("timeline-idle");
+            } else {
+                int colorIdx = colorMap.getOrDefault(pid, 0);
+                block.getStyleClass().add("timeline-c" + colorIdx);
+            }
+
+            Label nameLabel = new Label(pid);
             nameLabel.getStyleClass().add("timeline-name");
 
             Label timeLabel = new Label(start + " → " + end);
